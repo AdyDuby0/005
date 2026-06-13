@@ -8,7 +8,7 @@ import {
   getMainAttribute,
   trainingCost,
 } from "@/lib/engine/character";
-import { POTIONS_BY_ID } from "@/lib/data/items";
+import { getConsumable } from "@/lib/data/items";
 import { Gold } from "@/components/ui";
 
 export default function TrainingPanel() {
@@ -87,22 +87,24 @@ export default function TrainingPanel() {
         ) : (
           <div className="space-y-2">
             {potions.map(([id, count]) => {
-              const potion = POTIONS_BY_ID[id];
-              if (!potion) return null;
+              const item = getConsumable(id);
+              if (!item) return null;
+              const detail =
+                item.kind === "heal"
+                  ? `Heals ${Math.round(item.heal * 100)}% HP · auto-used in battle`
+                  : `${item.desc} · choose before a fight`;
               return (
                 <div
                   key={id}
                   className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-3 py-2"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl">{potion.icon}</span>
+                    <span className="text-2xl">{item.icon}</span>
                     <div>
                       <div className="text-sm font-semibold text-amber-100">
-                        {potion.name}
+                        {item.name}
                       </div>
-                      <div className="text-xs text-amber-100/60">
-                        Heals {Math.round(potion.heal * 100)}% HP
-                      </div>
+                      <div className="text-xs text-amber-100/60">{detail}</div>
                     </div>
                   </div>
                   <span className="font-mono text-lg font-bold text-amber-200">

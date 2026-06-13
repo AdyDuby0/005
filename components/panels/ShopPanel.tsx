@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useGame } from "@/lib/store";
-import { POTIONS, getDailyShopItems } from "@/lib/data/items";
+import { ELIXIRS, POTIONS, getDailyShopItems } from "@/lib/data/items";
 import { todayKey } from "@/lib/util";
 import {
   Gold,
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui";
 
 export default function ShopPanel() {
-  const { character, buyItem, buyPotion } = useGame();
+  const { character, buyItem, buyConsumable } = useGame();
   const day = todayKey();
 
   // Rotating stock, stable for the whole day then refreshed tomorrow.
@@ -104,11 +104,54 @@ export default function ShopPanel() {
                 </div>
               </div>
               <button
-                onClick={() => buyPotion(potion)}
+                onClick={() => buyConsumable(potion)}
                 disabled={!affordable}
                 className="btn-primary mt-3 w-full text-sm"
               >
                 Buy · 🪙 {potion.price}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Battle elixirs — pricey, one-fight buffs. */}
+      <h3 className="mb-3 mt-6 text-base font-bold text-amber-200">
+        ⚗️ Alchemist — Battle Elixirs
+      </h3>
+      <p className="mb-3 text-xs text-amber-100/50">
+        Chosen on the pre-battle screen, each elixir empowers you for a single
+        fight. Save them for the toughest foes.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {ELIXIRS.map((elixir) => {
+          const affordable = character.gold >= elixir.price;
+          const owned = character.consumables[elixir.id] ?? 0;
+          return (
+            <div
+              key={elixir.id}
+              className="flex flex-col rounded-xl border border-amber-400/20 bg-black/20 p-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-3xl">{elixir.icon}</div>
+                <div>
+                  <div className="font-semibold text-amber-100">
+                    {elixir.name}
+                  </div>
+                  <div className="text-xs text-amber-100/60">
+                    Owned: {owned}
+                  </div>
+                </div>
+              </div>
+              <p className="my-2 flex-1 text-xs text-amber-100/70">
+                {elixir.desc}
+              </p>
+              <button
+                onClick={() => buyConsumable(elixir)}
+                disabled={!affordable}
+                className="btn-primary w-full text-sm"
+              >
+                Buy · 🪙 {elixir.price}
               </button>
             </div>
           );

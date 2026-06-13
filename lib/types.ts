@@ -57,6 +57,17 @@ export interface Item {
   armor?: number;
 }
 
+export type ThemeKey =
+  | "beast"
+  | "undead"
+  | "dragon"
+  | "elemental"
+  | "demon"
+  | "humanoid"
+  | "arcane"
+  | "plant"
+  | "default";
+
 export interface Enemy {
   id: string;
   name: string;
@@ -69,6 +80,9 @@ export interface Enemy {
   /** Reward ranges. */
   xp: number;
   gold: number;
+  /** Visual theme + flavor backstory for the portrait/tooltip. */
+  theme: ThemeKey;
+  lore: string;
 }
 
 export interface Quest {
@@ -103,15 +117,39 @@ export interface Character {
   losses: number;
 }
 
-/** A drinkable consumable (healing potions, etc.). */
-export interface Consumable {
+/** Shared shape for anything purchasable that stacks in the backpack. */
+export interface ConsumableBase {
   id: string;
   name: string;
   icon: string;
-  /** Fraction of max HP restored (0..1). */
-  heal: number;
   price: number;
   levelReq: number;
+}
+
+/** A healing potion, auto-quaffed mid-fight when health runs low. */
+export interface Consumable extends ConsumableBase {
+  kind: "heal";
+  /** Fraction of max HP restored (0..1). */
+  heal: number;
+}
+
+/** Temporary combat buffs applied at the start of a single fight. */
+export interface ElixirModifier {
+  /** Bonus damage, as a fraction (0.25 = +25%). */
+  dmgPct?: number;
+  /** Additive critical-hit chance (0.2 = +20 percentage points). */
+  critAdd?: number;
+  /** Bonus max HP for the fight, as a fraction. */
+  maxHpPct?: number;
+  /** Additive evasion chance. */
+  evaAdd?: number;
+}
+
+export interface BattleElixir extends ConsumableBase {
+  kind: "buff";
+  desc: string;
+  theme: ThemeKey;
+  modifier: ElixirModifier;
 }
 
 export type CombatActor = {

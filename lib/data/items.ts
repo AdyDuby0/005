@@ -1,4 +1,4 @@
-import type { Consumable, Item } from "@/lib/types";
+import type { BattleElixir, Consumable, Item } from "@/lib/types";
 import { hashString, mulberry32, seededShuffle, todayKey } from "@/lib/util";
 
 // ---------------------------------------------------------------------------
@@ -382,6 +382,7 @@ export const POTIONS: Consumable[] = [
     id: "p_minor",
     name: "Minor Healing Potion",
     icon: "🧪",
+    kind: "heal",
     heal: 0.3,
     price: 45,
     levelReq: 1,
@@ -390,14 +391,16 @@ export const POTIONS: Consumable[] = [
     id: "p_greater",
     name: "Greater Healing Potion",
     icon: "⚗️",
+    kind: "heal",
     heal: 0.5,
     price: 130,
     levelReq: 4,
   },
   {
     id: "p_superior",
-    name: "Superior Elixir",
+    name: "Superior Healing Draught",
     icon: "🍶",
+    kind: "heal",
     heal: 0.75,
     price: 320,
     levelReq: 8,
@@ -407,6 +410,58 @@ export const POTIONS: Consumable[] = [
 export const POTIONS_BY_ID: Record<string, Consumable> = Object.fromEntries(
   POTIONS.map((p) => [p.id, p]),
 );
+
+// ---------------------------------------------------------------------------
+// Battle elixirs — one-fight buffs chosen on the pre-battle prep screen.
+// Deliberately pricey so they're a real investment for a tough fight.
+// ---------------------------------------------------------------------------
+
+export const ELIXIRS: BattleElixir[] = [
+  {
+    id: "e_strength",
+    name: "Elixir of Strength",
+    icon: "🟥",
+    kind: "buff",
+    theme: "dragon",
+    desc: "+30% damage for one fight.",
+    price: 220,
+    levelReq: 2,
+    modifier: { dmgPct: 0.3 },
+  },
+  {
+    id: "e_intellect",
+    name: "Elixir of the Mind",
+    icon: "🟪",
+    kind: "buff",
+    theme: "arcane",
+    desc: "+25% critical chance and +10% damage for one fight.",
+    price: 260,
+    levelReq: 3,
+    modifier: { critAdd: 0.25, dmgPct: 0.1 },
+  },
+  {
+    id: "e_vitality",
+    name: "Elixir of Vitality",
+    icon: "🟩",
+    kind: "buff",
+    theme: "plant",
+    desc: "+40% max health for one fight.",
+    price: 240,
+    levelReq: 2,
+    modifier: { maxHpPct: 0.4 },
+  },
+];
+
+export const ELIXIRS_BY_ID: Record<string, BattleElixir> = Object.fromEntries(
+  ELIXIRS.map((e) => [e.id, e]),
+);
+
+/** Look up any consumable (healing potion or battle elixir) by id. */
+export function getConsumable(
+  id: string,
+): Consumable | BattleElixir | undefined {
+  return POTIONS_BY_ID[id] ?? ELIXIRS_BY_ID[id];
+}
 
 export const ITEMS_BY_ID: Record<string, Item> = Object.fromEntries(
   ITEMS.map((item) => [item.id, item]),

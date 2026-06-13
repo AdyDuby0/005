@@ -5,6 +5,8 @@ import { useGame } from "@/lib/store";
 import { generateQuests, type GeneratedQuest } from "@/lib/data/quests";
 import { enemyToActor } from "@/lib/engine/combat";
 import { Gold } from "@/components/ui";
+import FoePortrait from "@/components/FoePortrait";
+import LoreTooltip from "@/components/LoreTooltip";
 import type { CombatConfig } from "@/components/CombatScreen";
 
 export default function QuestsPanel({
@@ -49,7 +51,17 @@ export default function QuestsPanel({
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <div className="text-3xl">{quest.monster.icon}</div>
+                <LoreTooltip
+                  title={quest.monster.name}
+                  subtitle={`Level ${quest.monster.level}`}
+                  lore={quest.monster.lore}
+                >
+                  <FoePortrait
+                    icon={quest.monster.icon}
+                    theme={quest.monster.theme}
+                    size={56}
+                  />
+                </LoreTooltip>
                 <div>
                   <h3 className="font-bold text-amber-100">{quest.name}</h3>
                   <p className="mt-1 max-w-md text-sm text-amber-100/70">
@@ -76,6 +88,8 @@ export default function QuestsPanel({
                   onStartCombat({
                     title: quest.name,
                     enemy: enemyToActor(quest.monster),
+                    theme: quest.monster.theme,
+                    lore: quest.monster.lore,
                     rewardXp: quest.rewardXp,
                     rewardGold: quest.rewardGold,
                     rewardItemId: quest.rewardItem?.id,

@@ -5,14 +5,18 @@ import { useGame } from "@/lib/store";
 import { ARENA_RIVALS } from "@/lib/data/enemies";
 import { toCombatActor } from "@/lib/engine/character";
 import { Gold } from "@/components/ui";
-import type { CombatActor } from "@/lib/types";
+import FoePortrait from "@/components/FoePortrait";
+import LoreTooltip from "@/components/LoreTooltip";
+import type { CombatActor, ThemeKey } from "@/lib/types";
 import type { CombatConfig } from "@/components/CombatScreen";
 
 interface Opponent {
   id: string;
   name: string;
   icon: string;
+  theme: ThemeKey;
   taunt: string;
+  lore: string;
   /** Power multiplier relative to the player — rolled randomly each time. */
   power: number;
 }
@@ -34,7 +38,9 @@ function rollOpponents(): Opponent[] {
     id: `${r.id}-${Math.random().toString(36).slice(2, 6)}`,
     name: r.name,
     icon: r.icon,
+    theme: r.theme,
     taunt: r.taunt,
+    lore: r.lore,
     power: 0.8 + Math.random() * 0.7, // 0.80 – 1.50
   }));
 }
@@ -99,7 +105,17 @@ export default function ArenaPanel({
               className="flex flex-col rounded-xl border border-white/10 bg-black/20 p-4"
             >
               <div className="flex items-start gap-3">
-                <div className="text-3xl">{rival.icon}</div>
+                <LoreTooltip
+                  title={rival.name}
+                  subtitle="Arena Rival"
+                  lore={rival.lore}
+                >
+                  <FoePortrait
+                    icon={rival.icon}
+                    theme={rival.theme}
+                    size={56}
+                  />
+                </LoreTooltip>
                 <div className="flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="font-bold text-amber-100">{rival.name}</h3>
@@ -125,6 +141,8 @@ export default function ArenaPanel({
                   onStartCombat({
                     title: `Duel: ${rival.name}`,
                     enemy: rivalActor,
+                    theme: rival.theme,
+                    lore: rival.lore,
                     rewardXp,
                     rewardGold,
                   })

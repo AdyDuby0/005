@@ -12,6 +12,7 @@ import QuestsPanel from "@/components/panels/QuestsPanel";
 import ArenaPanel from "@/components/panels/ArenaPanel";
 import TrainingPanel from "@/components/panels/TrainingPanel";
 import CombatScreen, { type CombatConfig } from "@/components/CombatScreen";
+import BattlePrep from "@/components/BattlePrep";
 
 type Tab =
   | "character"
@@ -34,8 +35,27 @@ export default function GameShell() {
   const { character, resetGame } = useGame();
   const [tab, setTab] = useState<Tab>("character");
   const [combat, setCombat] = useState<CombatConfig | null>(null);
+  const [prep, setPrep] = useState<CombatConfig | null>(null);
 
   if (!character) return null;
+
+  // While preparing for or fighting a battle, the whole menu is hidden. When
+  // it closes, the Quests/Arena panels remount and re-roll fresh opponents.
+  if (prep) {
+    return (
+      <BattlePrep
+        base={prep}
+        onBegin={(c) => {
+          setPrep(null);
+          setCombat(c);
+        }}
+        onCancel={() => setPrep(null)}
+      />
+    );
+  }
+  if (combat) {
+    return <CombatScreen config={combat} onClose={() => setCombat(null)} />;
+  }
 
   const xpNeeded = xpForNextLevel(character.level);
   const def = CLASSES[character.classKey];
@@ -120,16 +140,12 @@ export default function GameShell() {
       {/* Active panel */}
       <section>
         {tab === "character" && <CharacterPanel />}
-        {tab === "quests" && <QuestsPanel onStartCombat={setCombat} />}
-        {tab === "arena" && <ArenaPanel onStartCombat={setCombat} />}
+        {tab === "quests" && <QuestsPanel onStartCombat={setPrep} />}
+        {tab === "arena" && <ArenaPanel onStartCombat={setPrep} />}
         {tab === "equipment" && <EquipmentPanel />}
         {tab === "shop" && <ShopPanel />}
         {tab === "training" && <TrainingPanel />}
       </section>
-
-      {combat && (
-        <CombatScreen config={combat} onClose={() => setCombat(null)} />
-      )}
     </div>
   );
 }

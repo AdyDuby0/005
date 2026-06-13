@@ -12,7 +12,7 @@ import type {
   AttributeKey,
   Character,
   ClassKey,
-  Consumable,
+  ConsumableBase,
   EquipmentSlot,
   Item,
 } from "@/lib/types";
@@ -42,7 +42,7 @@ interface GameContextValue {
   spendAttributePoint: (attr: AttributeKey) => void;
   trainAttribute: (attr: AttributeKey) => void;
   buyItem: (item: Item) => void;
-  buyPotion: (potion: Consumable) => void;
+  buyConsumable: (c: ConsumableBase) => void;
   sellItem: (index: number) => void;
   equipItem: (index: number) => void;
   unequipSlot: (slot: EquipmentSlot) => void;
@@ -171,21 +171,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     [pushToast],
   );
 
-  const buyPotion = useCallback(
-    (potion: Consumable) => {
+  const buyConsumable = useCallback(
+    (item: ConsumableBase) => {
       setCharacter((c) => {
         if (!c) return c;
-        if (c.gold < potion.price) {
+        if (c.gold < item.price) {
           pushToast("Not enough gold.", "bad");
           return c;
         }
-        pushToast(`Bought ${potion.name}`, "good");
+        pushToast(`Bought ${item.name}`, "good");
         return {
           ...c,
-          gold: c.gold - potion.price,
+          gold: c.gold - item.price,
           consumables: {
             ...c.consumables,
-            [potion.id]: (c.consumables[potion.id] ?? 0) + 1,
+            [item.id]: (c.consumables[item.id] ?? 0) + 1,
           },
         };
       });
@@ -319,7 +319,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       spendAttributePoint,
       trainAttribute,
       buyItem,
-      buyPotion,
+      buyConsumable,
       sellItem,
       equipItem,
       unequipSlot,
@@ -337,7 +337,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       spendAttributePoint,
       trainAttribute,
       buyItem,
-      buyPotion,
+      buyConsumable,
       sellItem,
       equipItem,
       unequipSlot,

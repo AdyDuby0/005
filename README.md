@@ -11,16 +11,27 @@ in the browser. Your progress saves automatically to the browser (localStorage).
   - 🔮 **Mage** (Intelligence, devastating spells, fragile)
   - 🏹 **Scout** (Dexterity + Luck, fast and crit-heavy)
 - **Attributes & levelling** — Strength, Dexterity, Intelligence, Constitution,
-  Luck. Earn 5 attribute points per level; level-ups fully heal you.
-- **Turn-based combat** — choose **Attack**, **Power** (risky big hit), your
-  class **Special** (on a short cooldown), or **Defend** (block + small heal).
-  Damage uses dice-style rolls with crits, armor mitigation, and simple enemy AI.
-- **Quests** — 8 story quests with scaling foes, XP/gold rewards, and one-time
-  guaranteed loot drops.
-- **Arena duels** — challenge rival NPC adventurers mirror-matched to your power.
-- **Shop** — buy weapons, armor, and trinkets across five rarities.
+  Luck. Earn 5 attribute points per level. HP is irrelevant outside of combat —
+  every fight starts you at full health.
+- **Auto-resolved combat** (Shakes & Fidget style) — battles play out
+  automatically with animated playback. Variability comes from damage rolls,
+  **critical hits**, and **evasion/dodge**. The menu is hidden during a fight.
+- **Foe portraits & lore** — themed, illustrated-style portraits (CSS/SVG) for
+  every monster and rival, with a backstory shown on hover and on the
+  pre-battle screen.
+- **Battle prep & elixirs** — before each fight, inspect the foe and optionally
+  drink one-fight **Strength / Mind / Vitality** elixirs for a buff.
+- **Healing potions** — three tiers, quaffed automatically mid-fight when your
+  health runs low.
+- **Quests** — a re-rollable board of randomly generated encounters drawn from a
+  pool of 30+ creatures, always scaled below your level, with XP/gold and the
+  occasional loot drop.
+- **Arena duels** — rival NPCs whose strength is rolled randomly each time, so
+  the difficulty is never quite predictable.
+- **Shop** — weapons, armor, and trinkets across five rarities, with stock that
+  **rotates daily**; plus the apothecary (potions) and alchemist (elixirs).
 - **Equipment** — six gear slots; equip/unequip, sell unwanted loot.
-- **Training Hall & Inn** — permanently train attributes for gold, or rest to heal.
+- **Training Hall** — permanently train attributes for gold.
 
 ## Tech stack
 
