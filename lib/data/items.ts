@@ -1,4 +1,5 @@
-import type { Item } from "@/lib/types";
+import type { Consumable, Item } from "@/lib/types";
+import { hashString, mulberry32, seededShuffle, todayKey } from "@/lib/util";
 
 // ---------------------------------------------------------------------------
 // The master item table. Items are referenced by id everywhere else.
@@ -266,7 +267,146 @@ export const ITEMS: Item[] = [
     price: 680,
     attributes: { intelligence: 9, luck: 4 },
   },
+
+  // ---- Additional weapons ----------------------------------------------
+  {
+    id: "w_short_spear",
+    name: "Short Spear",
+    icon: "🔱",
+    slot: "weapon",
+    rarity: "common",
+    levelReq: 2,
+    price: 60,
+    attributes: { dexterity: 2, strength: 1 },
+    damage: 11,
+  },
+  {
+    id: "w_frost_blade",
+    name: "Frostbrand Sword",
+    icon: "❄️",
+    slot: "weapon",
+    rarity: "epic",
+    levelReq: 8,
+    price: 700,
+    attributes: { strength: 7, intelligence: 5, luck: 2 },
+    damage: 40,
+  },
+  {
+    id: "w_assassin_kris",
+    name: "Assassin's Kris",
+    icon: "🗡️",
+    slot: "weapon",
+    rarity: "legendary",
+    levelReq: 11,
+    price: 1500,
+    attributes: { dexterity: 14, luck: 8 },
+    damage: 54,
+  },
+
+  // ---- Additional armor -------------------------------------------------
+  {
+    id: "h_horned_helm",
+    name: "Horned Helm",
+    icon: "🪖",
+    slot: "head",
+    rarity: "rare",
+    levelReq: 6,
+    price: 280,
+    attributes: { strength: 4, constitution: 3 },
+    armor: 16,
+  },
+  {
+    id: "c_shadow_cloak",
+    name: "Shadowweave Cloak",
+    icon: "🧥",
+    slot: "chest",
+    rarity: "rare",
+    levelReq: 6,
+    price: 320,
+    attributes: { dexterity: 6, luck: 3 },
+    armor: 13,
+  },
+  {
+    id: "g_arcane_bracers",
+    name: "Arcane Bracers",
+    icon: "🧤",
+    slot: "hands",
+    rarity: "rare",
+    levelReq: 5,
+    price: 240,
+    attributes: { intelligence: 6, luck: 2 },
+    armor: 6,
+  },
+  {
+    id: "f_dragonscale_greaves",
+    name: "Dragonscale Greaves",
+    icon: "🦿",
+    slot: "feet",
+    rarity: "epic",
+    levelReq: 10,
+    price: 640,
+    attributes: { constitution: 7, strength: 3 },
+    armor: 20,
+  },
+
+  // ---- Additional accessories ------------------------------------------
+  {
+    id: "a_band_of_vigor",
+    name: "Band of Vigor",
+    icon: "💍",
+    slot: "accessory",
+    rarity: "uncommon",
+    levelReq: 3,
+    price: 130,
+    attributes: { constitution: 5 },
+  },
+  {
+    id: "a_phoenix_pendant",
+    name: "Phoenix Pendant",
+    icon: "🔥",
+    slot: "accessory",
+    rarity: "legendary",
+    levelReq: 11,
+    price: 1400,
+    attributes: { constitution: 8, intelligence: 6, luck: 6 },
+  },
 ];
+
+// ---------------------------------------------------------------------------
+// Healing potions (consumables). Carried in the backpack and quaffed
+// automatically mid-fight when the hero drops below ~35% health.
+// ---------------------------------------------------------------------------
+
+export const POTIONS: Consumable[] = [
+  {
+    id: "p_minor",
+    name: "Minor Healing Potion",
+    icon: "🧪",
+    heal: 0.3,
+    price: 45,
+    levelReq: 1,
+  },
+  {
+    id: "p_greater",
+    name: "Greater Healing Potion",
+    icon: "⚗️",
+    heal: 0.5,
+    price: 130,
+    levelReq: 4,
+  },
+  {
+    id: "p_superior",
+    name: "Superior Elixir",
+    icon: "🍶",
+    heal: 0.75,
+    price: 320,
+    levelReq: 8,
+  },
+];
+
+export const POTIONS_BY_ID: Record<string, Consumable> = Object.fromEntries(
+  POTIONS.map((p) => [p.id, p]),
+);
 
 export const ITEMS_BY_ID: Record<string, Item> = Object.fromEntries(
   ITEMS.map((item) => [item.id, item]),
@@ -274,4 +414,23 @@ export const ITEMS_BY_ID: Record<string, Item> = Object.fromEntries(
 
 export function getItem(id: string): Item | undefined {
   return ITEMS_BY_ID[id];
+}
+
+/**
+ * The shop's rotating stock for a given day. Deterministic per calendar day
+ * (and per player level band) so the wares are stable until tomorrow, then
+ * refresh. Items too far above the player's level are filtered out.
+ */
+export function getDailyShopItems(
+  playerLevel: number,
+  dayKey: string = todayKey(),
+  count = 8,
+): Item[] {
+  const rng = mulberry32(hashString(`${dayKey}|lvl${Math.ceil(playerLevel / 3)}`));
+  const pool = ITEMS.filter((it) => it.levelReq <= playerLevel + 2);
+  // If the player is very low level there may be few items — top up from all.
+  const source = pool.length >= count ? pool : ITEMS;
+  return seededShuffle(source, rng)
+    .slice(0, count)
+    .sort((a, b) => a.levelReq - b.levelReq || a.price - b.price);
 }

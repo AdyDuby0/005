@@ -54,6 +54,7 @@ export function createCharacter(name: string, classKey: ClassKey): Character {
     currentHp: 0,
     equipment: {},
     inventory: [],
+    consumables: { p_minor: 2 },
     questsCompleted: [],
     wins: 0,
     losses: 0,
@@ -113,26 +114,35 @@ export function getCritChance(char: Character): number {
   return Math.min(0.6, chance);
 }
 
+/** Evasion chance (0..1) to dodge an incoming attack, from dexterity + luck. */
+export function getEvasion(char: Character): number {
+  const attrs = getTotalAttributes(char);
+  const chance = 0.03 + attrs.dexterity * 0.004 + attrs.luck * 0.002;
+  return Math.min(0.4, chance);
+}
+
 /** Convert armor into a fractional damage reduction (0..~0.75). */
 export function armorReduction(armor: number, attackerLevel: number): number {
   const k = 40 + attackerLevel * 10;
   return Math.min(0.75, armor / (armor + k));
 }
 
-/** Build the player's combat actor snapshot from their current sheet. */
+/** Build the player's combat actor snapshot from their current sheet.
+ *  HP always starts full — outside of a fight, health is irrelevant. */
 export function toCombatActor(char: Character): CombatActor {
   const dmg = getDamageRange(char);
+  const maxHp = getMaxHp(char);
   return {
     name: char.name,
     icon: CLASSES[char.classKey].icon,
     level: char.level,
-    maxHp: getMaxHp(char),
-    hp: Math.min(char.currentHp, getMaxHp(char)),
+    maxHp,
+    hp: maxHp,
     minDamage: dmg.min,
     maxDamage: dmg.max,
     armor: getArmor(char),
     critChance: getCritChance(char),
-    blocking: false,
+    evasion: getEvasion(char),
   };
 }
 

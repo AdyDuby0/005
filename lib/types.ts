@@ -96,9 +96,22 @@ export interface Character {
   currentHp: number;
   equipment: Partial<Record<EquipmentSlot, Item>>;
   inventory: Item[];
+  /** Healing potions held, keyed by consumable id -> quantity. */
+  consumables: Record<string, number>;
   questsCompleted: string[];
   wins: number;
   losses: number;
+}
+
+/** A drinkable consumable (healing potions, etc.). */
+export interface Consumable {
+  id: string;
+  name: string;
+  icon: string;
+  /** Fraction of max HP restored (0..1). */
+  heal: number;
+  price: number;
+  levelReq: number;
 }
 
 export type CombatActor = {
@@ -111,9 +124,19 @@ export type CombatActor = {
   maxDamage: number;
   armor: number;
   critChance: number;
-  /** Block charge accumulated by defending. */
-  blocking: boolean;
+  /** Chance (0..1) to completely evade an incoming attack. */
+  evasion: number;
 };
+
+/** A single resolved moment in an auto-battle, used for animated playback. */
+export interface BattleEvent {
+  attacker: "player" | "enemy";
+  kind: "hit" | "crit" | "miss" | "potion";
+  amount: number;
+  playerHp: number;
+  enemyHp: number;
+  text: string;
+}
 
 export interface CombatLogEntry {
   id: number;

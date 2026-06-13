@@ -1,98 +1,87 @@
-import type { Quest } from "@/lib/types";
+import type { Enemy, Item } from "@/lib/types";
+import { rollQuestMonster } from "@/lib/data/monsters";
+import { ITEMS } from "@/lib/data/items";
 
 // ---------------------------------------------------------------------------
-// Story quests. Each pits the player against an enemy and grants rewards.
-// First completion can grant a guaranteed item.
+// Quests are generated dynamically: each is a randomly drawn monster (always
+// weaker than the player) with rewards scaled to it, and a chance at loot.
+// The board refreshes on demand and once per day.
 // ---------------------------------------------------------------------------
 
-export const QUESTS: Quest[] = [
-  {
-    id: "q_cellar",
-    name: "Trouble in the Cellar",
-    description:
-      "The innkeeper swears something is gnawing through his ale barrels. Investigate the cellar and deal with the pest.",
-    levelReq: 1,
-    enemyId: "e_rat",
-    rewardXp: 40,
-    rewardGold: 25,
-    rewardItemId: "a_lucky_charm",
-  },
-  {
-    id: "q_road",
-    name: "The Bandit's Toll",
-    description:
-      "A goblin has been shaking down travelers on the east road. Teach it some manners.",
-    levelReq: 2,
-    enemyId: "e_goblin",
-    rewardXp: 65,
-    rewardGold: 40,
-  },
-  {
-    id: "q_forest",
-    name: "Howls in the Pinewood",
-    description:
-      "Shepherds report a dire wolf stalking the treeline at dusk. Hunt it before it takes the flock.",
-    levelReq: 3,
-    enemyId: "e_wolf",
-    rewardXp: 95,
-    rewardGold: 55,
-    rewardItemId: "g_gauntlets",
-  },
-  {
-    id: "q_crypt",
-    name: "The Restless Crypt",
-    description:
-      "Grave-robbers woke something in the old crypt. Put the skeleton warrior back to rest.",
-    levelReq: 4,
-    enemyId: "e_skeleton",
-    rewardXp: 130,
-    rewardGold: 75,
-  },
-  {
-    id: "q_hills",
-    name: "Smashing Trouble",
-    description:
-      "A cave ogre is hurling boulders at the mountain pass. Clear the road the hard way.",
-    levelReq: 6,
-    enemyId: "e_ogre",
-    rewardXp: 210,
-    rewardGold: 110,
-    rewardItemId: "f_swift_boots",
-  },
-  {
-    id: "q_swamp",
-    name: "Brew of the Bog",
-    description:
-      "A swamp witch is poisoning the wells. End her foul brewing for good.",
-    levelReq: 7,
-    enemyId: "e_witch",
-    rewardXp: 270,
-    rewardGold: 140,
-  },
-  {
-    id: "q_ruins",
-    name: "Heart of Stone",
-    description:
-      "An ancient golem guards a vault of forgotten treasure. Bring it down stone by stone.",
-    levelReq: 9,
-    enemyId: "e_golem",
-    rewardXp: 380,
-    rewardGold: 200,
-    rewardItemId: "a_amulet_arcana",
-  },
-  {
-    id: "q_dragon",
-    name: "The Dragon's Hoard",
-    description:
-      "The Ancient Red Dragon has terrorized the realm for a century. Become a legend, or become ash.",
-    levelReq: 12,
-    enemyId: "e_dragon",
-    rewardXp: 700,
-    rewardGold: 500,
-    rewardItemId: "w_archmage_scepter",
-  },
+export interface GeneratedQuest {
+  id: string;
+  name: string;
+  flavor: string;
+  monster: Enemy;
+  rewardXp: number;
+  rewardGold: number;
+  rewardItem?: Item;
+}
+
+const VERBS = [
+  "Slay",
+  "Hunt",
+  "Banish",
+  "Track Down",
+  "Drive Off",
+  "Vanquish",
+  "Cull",
 ];
 
-export const QUESTS_BY_ID: Record<string, Quest> = Object.fromEntries(
-  QUESTS.map((q) => [q.id, q]),
-);
+const PLACES = [
+  "the Whispering Woods",
+  "the Old Crypt",
+  "Blackmire Swamp",
+  "the Frostpeak Pass",
+  "the Sunken Ruins",
+  "the Ember Caverns",
+  "the Howling Moors",
+  "the Forgotten Vale",
+];
+
+const FLAVORS = [
+  "Villagers have offered a bounty — bring back proof of the deed.",
+  "It has been raiding the trade road at dusk. Put a stop to it.",
+  "Livestock keep vanishing. Follow the tracks and end the threat.",
+  "A local hero never returned from this hunt. Finish what they started.",
+  "The beast guards something valuable. Claim it for yourself.",
+  "Strange howls keep the children awake. Silence them for good.",
+];
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/** Generate a fresh batch of quests appropriate to the player's level. */
+export function generateQuests(
+  playerLevel: number,
+  count = 4,
+): GeneratedQuest[] {
+  const quests: GeneratedQuest[] = [];
+  for (let i = 0; i < count; i++) {
+    const monster = rollQuestMonster(playerLevel);
+    const rewardXp = Math.round(monster.xp * (1.1 + Math.random() * 0.5));
+    const rewardGold = Math.round(monster.gold * (1.1 + Math.random() * 0.6));
+
+    // ~35% chance of a guaranteed item drop the player can actually use.
+    let rewardItem: Item | undefined;
+    if (Math.random() < 0.35) {
+      const usable = ITEMS.filter(
+        (it) =>
+          it.levelReq <= playerLevel && it.levelReq >= playerLevel - 4,
+      );
+      if (usable.length) rewardItem = pick(usable);
+    }
+
+    quests.push({
+      id: `q_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+      name: `${pick(VERBS)} the ${monster.name}`,
+      flavor: `${pick(FLAVORS)} Last seen near ${pick(PLACES)}.`,
+      monster,
+      rewardXp,
+      rewardGold,
+      rewardItem,
+    });
+  }
+  return quests;
+}

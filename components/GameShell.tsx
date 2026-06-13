@@ -3,11 +3,8 @@
 import { useState } from "react";
 import { useGame } from "@/lib/store";
 import { CLASSES } from "@/lib/data/classes";
-import {
-  getMaxHp,
-  xpForNextLevel,
-} from "@/lib/engine/character";
-import { Gold, HpBar } from "@/components/ui";
+import { xpForNextLevel } from "@/lib/engine/character";
+import { Gold } from "@/components/ui";
 import CharacterPanel from "@/components/panels/CharacterPanel";
 import EquipmentPanel from "@/components/panels/EquipmentPanel";
 import ShopPanel from "@/components/panels/ShopPanel";
@@ -40,7 +37,6 @@ export default function GameShell() {
 
   if (!character) return null;
 
-  const maxHp = getMaxHp(character);
   const xpNeeded = xpForNextLevel(character.level);
   const def = CLASSES[character.classKey];
 
@@ -58,16 +54,7 @@ export default function GameShell() {
               Lv {character.level} {def.name}
             </span>
           </div>
-          <div className="mt-1 flex items-center gap-2 text-xs text-amber-100/70">
-            <span className="w-10">HP</span>
-            <div className="flex-1">
-              <HpBar hp={character.currentHp} max={maxHp} />
-            </div>
-            <span className="w-16 text-right font-mono">
-              {character.currentHp}/{maxHp}
-            </span>
-          </div>
-          <div className="mt-1 flex items-center gap-2 text-xs text-amber-100/70">
+          <div className="mt-2 flex items-center gap-2 text-xs text-amber-100/70">
             <span className="w-10">XP</span>
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/40">
               <div

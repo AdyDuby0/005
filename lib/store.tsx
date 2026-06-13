@@ -12,6 +12,7 @@ import type {
   AttributeKey,
   Character,
   ClassKey,
+  Consumable,
   EquipmentSlot,
   Item,
 } from "@/lib/types";
@@ -41,11 +42,11 @@ interface GameContextValue {
   spendAttributePoint: (attr: AttributeKey) => void;
   trainAttribute: (attr: AttributeKey) => void;
   buyItem: (item: Item) => void;
+  buyPotion: (potion: Consumable) => void;
   sellItem: (index: number) => void;
   equipItem: (index: number) => void;
   unequipSlot: (slot: EquipmentSlot) => void;
-  rest: () => void;
-  /** Apply the result of a finished fight. Returns reward summary text. */
+  /** Apply the result of a finished fight. */
   resolveBattleResult: (won: boolean, opts: BattleReward) => void;
   completeQuest: (questId: string) => void;
   pushToast: (text: string, tone?: Toast["tone"]) => void;
@@ -55,9 +56,9 @@ interface GameContextValue {
 export interface BattleReward {
   xp: number;
   gold: number;
-  /** Remaining HP to persist after the fight. */
-  remainingHp: number;
   itemId?: string;
+  /** Potion ids consumed during the fight, to deduct from the backpack. */
+  consumedPotions?: string[];
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -71,7 +72,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setCharacter(JSON.parse(raw) as Character);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Character;
+        // Backfill fields added in later versions so old saves still load.
+        if (!parsed.consumables) parsed.consumables = {};
+        setCharacter(parsed);
+      }
     } catch {
       // Corrupt save — start fresh rather than crash.
     }
@@ -165,6 +171,28 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     [pushToast],
   );
 
+  const buyPotion = useCallback(
+    (potion: Consumable) => {
+      setCharacter((c) => {
+        if (!c) return c;
+        if (c.gold < potion.price) {
+          pushToast("Not enough gold.", "bad");
+          return c;
+        }
+        pushToast(`Bought ${potion.name}`, "good");
+        return {
+          ...c,
+          gold: c.gold - potion.price,
+          consumables: {
+            ...c.consumables,
+            [potion.id]: (c.consumables[potion.id] ?? 0) + 1,
+          },
+        };
+      });
+    },
+    [pushToast],
+  );
+
   const sellItem = useCallback(
     (index: number) => {
       setCharacter((c) => {
@@ -201,8 +229,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           equipment: { ...c.equipment, [item.slot]: item },
           inventory: newInventory,
         };
-        // Keep HP within the (possibly higher) max.
-        next.currentHp = Math.min(next.currentHp, getMaxHp(next));
+        // HP is always full outside of combat.
+        next.currentHp = getMaxHp(next);
         pushToast(`Equipped ${item.name}`, "good");
         return next;
       });
@@ -223,33 +251,31 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           equipment: newEquipment,
           inventory: [...c.inventory, item],
         };
-        next.currentHp = Math.min(next.currentHp, getMaxHp(next));
+        next.currentHp = getMaxHp(next);
         return next;
       });
     },
     [],
   );
 
-  const rest = useCallback(() => {
-    setCharacter((c) => {
-      if (!c) return c;
-      const cost = 10 + c.level * 4;
-      if (c.gold < cost) {
-        pushToast("Not enough gold to rest.", "bad");
-        return c;
-      }
-      pushToast("Fully rested at the inn.", "good");
-      return { ...c, gold: c.gold - cost, currentHp: getMaxHp(c) };
-    });
-  }, [pushToast]);
-
   const resolveBattleResult = useCallback(
     (won: boolean, opts: BattleReward) => {
       setCharacter((c) => {
         if (!c) return c;
+        // Deduct any potions drunk during the fight.
+        let consumables = c.consumables;
+        if (opts.consumedPotions && opts.consumedPotions.length) {
+          consumables = { ...consumables };
+          for (const id of opts.consumedPotions) {
+            consumables[id] = Math.max(0, (consumables[id] ?? 0) - 1);
+            if (consumables[id] === 0) delete consumables[id];
+          }
+        }
+        // HP is always restored to full once the fight is over.
         let next: Character = {
           ...c,
-          currentHp: Math.max(1, Math.round(opts.remainingHp)),
+          consumables,
+          currentHp: getMaxHp(c),
         };
         if (won) {
           const { character: leveled, leveledUp, levelsGained } = grantXp(
@@ -293,10 +319,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       spendAttributePoint,
       trainAttribute,
       buyItem,
+      buyPotion,
       sellItem,
       equipItem,
       unequipSlot,
-      rest,
       resolveBattleResult,
       completeQuest,
       pushToast,
@@ -311,10 +337,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       spendAttributePoint,
       trainAttribute,
       buyItem,
+      buyPotion,
       sellItem,
       equipItem,
       unequipSlot,
-      rest,
       resolveBattleResult,
       completeQuest,
       pushToast,

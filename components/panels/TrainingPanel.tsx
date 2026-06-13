@@ -8,14 +8,17 @@ import {
   getMainAttribute,
   trainingCost,
 } from "@/lib/engine/character";
+import { POTIONS_BY_ID } from "@/lib/data/items";
 import { Gold } from "@/components/ui";
 
 export default function TrainingPanel() {
-  const { character, trainAttribute, rest } = useGame();
+  const { character, trainAttribute } = useGame();
   if (!character) return null;
 
   const main = getMainAttribute(character);
-  const restCost = 10 + character.level * 4;
+  const potions = Object.entries(character.consumables).filter(
+    ([, count]) => count > 0,
+  );
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -64,27 +67,52 @@ export default function TrainingPanel() {
             );
           })}
         </div>
-      </div>
-
-      {/* Inn / rest */}
-      <div className="panel p-5">
-        <h2 className="mb-1 text-lg font-bold text-amber-200">🏨 The Inn</h2>
-        <p className="mb-4 text-sm text-amber-100/60">
-          Rest to fully restore your health before a tough fight. (Winning
-          battles also keeps your remaining HP, and levelling up heals you
-          completely.)
-        </p>
-        <div className="rounded-lg border border-white/10 bg-black/20 p-4">
-          <p className="mb-3 text-sm text-amber-100/80">
-            A warm bed and a hot meal will mend your wounds.
-          </p>
-          <button onClick={rest} className="btn-primary w-full">
-            Rest · 🪙 {restCost}
-          </button>
-        </div>
         <p className="mt-4 text-right text-xs text-amber-100/50">
           You have <Gold amount={character.gold} />
         </p>
+      </div>
+
+      {/* Potion stock */}
+      <div className="panel p-5">
+        <h2 className="mb-1 text-lg font-bold text-amber-200">🧪 Potion Belt</h2>
+        <p className="mb-4 text-sm text-amber-100/60">
+          You don't need to rest — your wounds fully heal after every fight. In
+          battle, these potions are quaffed automatically when your health drops
+          low. Buy more at the shop's apothecary.
+        </p>
+        {potions.length === 0 ? (
+          <p className="text-sm text-amber-100/50">
+            No potions in your belt. Visit the shop to stock up.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {potions.map(([id, count]) => {
+              const potion = POTIONS_BY_ID[id];
+              if (!potion) return null;
+              return (
+                <div
+                  key={id}
+                  className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{potion.icon}</span>
+                    <div>
+                      <div className="text-sm font-semibold text-amber-100">
+                        {potion.name}
+                      </div>
+                      <div className="text-xs text-amber-100/60">
+                        Heals {Math.round(potion.heal * 100)}% HP
+                      </div>
+                    </div>
+                  </div>
+                  <span className="font-mono text-lg font-bold text-amber-200">
+                    ×{count}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

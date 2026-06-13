@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
 import { useGame } from "@/lib/store";
-import { ITEMS } from "@/lib/data/items";
-import type { EquipmentSlot } from "@/lib/types";
+import { POTIONS, getDailyShopItems } from "@/lib/data/items";
+import { todayKey } from "@/lib/util";
 import {
   Gold,
   ItemStats,
@@ -12,52 +12,32 @@ import {
   rarityText,
 } from "@/components/ui";
 
-const FILTERS: { key: EquipmentSlot | "all"; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "weapon", label: "Weapons" },
-  { key: "chest", label: "Armor" },
-  { key: "head", label: "Helms" },
-  { key: "hands", label: "Gloves" },
-  { key: "feet", label: "Boots" },
-  { key: "accessory", label: "Trinkets" },
-];
-
 export default function ShopPanel() {
-  const { character, buyItem } = useGame();
-  const [filter, setFilter] = useState<EquipmentSlot | "all">("all");
-  if (!character) return null;
+  const { character, buyItem, buyPotion } = useGame();
+  const day = todayKey();
 
-  const items = [...ITEMS]
-    .filter((i) => filter === "all" || i.slot === filter)
-    .sort((a, b) => a.levelReq - b.levelReq || a.price - b.price);
+  // Rotating stock, stable for the whole day then refreshed tomorrow.
+  const stock = useMemo(
+    () => (character ? getDailyShopItems(character.level, day) : []),
+    [character, day],
+  );
+
+  if (!character) return null;
 
   return (
     <div className="panel p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-bold text-amber-200">🏪 Merchant's Wares</h2>
         <span className="text-sm">
           Purse: <Gold amount={character.gold} />
         </span>
       </div>
-
-      <div className="mb-4 flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              filter === f.key
-                ? "bg-amber-500 text-ink"
-                : "border border-white/15 text-amber-100 hover:bg-white/10"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      <p className="mb-4 text-xs text-amber-100/50">
+        Stock rotates daily — check back tomorrow for fresh gear.
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {items.map((item) => {
+        {stock.map((item) => {
           const affordable = character.gold >= item.price;
           const meetsLevel = character.level >= item.levelReq;
           return (
@@ -90,6 +70,45 @@ export default function ShopPanel() {
                 }
               >
                 Buy · 🪙 {item.price}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Potions are always in stock. */}
+      <h3 className="mb-3 mt-6 text-base font-bold text-amber-200">
+        🧪 Apothecary — Healing Potions
+      </h3>
+      <p className="mb-3 text-xs text-amber-100/50">
+        Potions are drunk automatically in battle when your health runs low.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {POTIONS.map((potion) => {
+          const affordable = character.gold >= potion.price;
+          const owned = character.consumables[potion.id] ?? 0;
+          return (
+            <div
+              key={potion.id}
+              className="flex flex-col rounded-xl border border-white/10 bg-black/20 p-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-3xl">{potion.icon}</div>
+                <div>
+                  <div className="font-semibold text-amber-100">
+                    {potion.name}
+                  </div>
+                  <div className="text-xs text-amber-100/60">
+                    Heals {Math.round(potion.heal * 100)}% HP · Owned: {owned}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => buyPotion(potion)}
+                disabled={!affordable}
+                className="btn-primary mt-3 w-full text-sm"
+              >
+                Buy · 🪙 {potion.price}
               </button>
             </div>
           );
