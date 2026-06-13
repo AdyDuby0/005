@@ -24,3 +24,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# build artifacts
+/realms-of-valor.zip
