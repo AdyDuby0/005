@@ -92,6 +92,7 @@ export default function GameShell() {
           <span className="text-xs text-amber-100/60">
             {character.wins}W / {character.losses}L
           </span>
+          <AccountControls />
           <button
             onClick={() => {
               if (
@@ -148,4 +149,47 @@ export default function GameShell() {
       </section>
     </div>
   );
+}
+
+function AccountControls() {
+  const { cloudConfigured, user, signIn, signOutAccount } = useGame();
+
+  if (user) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-amber-100/70">
+        {user.photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.photo}
+            alt=""
+            className="h-4 w-4 rounded-full"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <span>☁️</span>
+        )}
+        <span className="max-w-[90px] truncate">{user.name}</span>
+        <button
+          onClick={signOutAccount}
+          className="text-amber-300/70 hover:text-amber-200"
+          title="Sign out"
+        >
+          · sign out
+        </button>
+      </div>
+    );
+  }
+
+  if (cloudConfigured) {
+    return (
+      <button
+        onClick={signIn}
+        className="text-xs text-amber-300/80 hover:text-amber-200"
+      >
+        ☁️ Sign in to sync
+      </button>
+    );
+  }
+
+  return null;
 }

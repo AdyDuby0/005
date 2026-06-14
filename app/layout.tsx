@@ -26,6 +26,8 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap"
           rel="stylesheet"
         />
+        {/* Optional Google sign-in / cloud-save config (edit the file to enable). */}
+        <script src="firebase-config.js" />
       </head>
       <body>
         <GameProvider>{children}</GameProvider>

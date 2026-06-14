@@ -6,6 +6,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type {
@@ -24,8 +25,21 @@ import {
   trainingCost,
 } from "@/lib/engine/character";
 import { getItem } from "@/lib/data/items";
+import {
+  firebaseAvailable,
+  loadCloudSave,
+  saveCloudSave,
+  signInWithGoogle,
+  signOutUser,
+  subscribeAuth,
+  type AuthUser,
+} from "@/lib/firebase";
 
 const STORAGE_KEY = "rpg-adventure-save-v1";
+const GUEST_CHOSEN_KEY = "rpg-adventure-guest";
+
+/** What the app should currently show. */
+export type AppPhase = "loading" | "signin" | "game";
 
 export interface Toast {
   id: number;
@@ -35,8 +49,15 @@ export interface Toast {
 
 interface GameContextValue {
   character: Character | null;
-  loaded: boolean;
+  phase: AppPhase;
+  /** Whether Google sign-in is configured/available. */
+  cloudConfigured: boolean;
+  /** The signed-in Google user, or null in guest mode. */
+  user: AuthUser | null;
   toasts: Toast[];
+  signIn: () => void;
+  signOutAccount: () => void;
+  continueAsGuest: () => void;
   newGame: (name: string, classKey: ClassKey) => void;
   resetGame: () => void;
   spendAttributePoint: (attr: AttributeKey) => void;
@@ -63,37 +84,129 @@ export interface BattleReward {
 
 const GameContext = createContext<GameContextValue | null>(null);
 
+/** Backfill fields added in later versions so old saves still load. */
+function backfill(c: Character): Character {
+  if (!c.consumables) c.consumables = {};
+  return c;
+}
+
+function readLocal(key: string): Character | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return backfill(JSON.parse(raw) as Character);
+  } catch {
+    return null;
+  }
+}
+
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const [character, setCharacter] = useState<Character | null>(null);
-  const [loaded, setLoaded] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Load save once on mount.
+  // --- Account / profile state --------------------------------------------
+  const [cloudConfigured] = useState(() => firebaseAvailable());
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [guestChosen, setGuestChosen] = useState(false);
+  const [dataReady, setDataReady] = useState(false);
+  // Which save we're reading/writing: "guest" | "cloud:<uid>" | null.
+  const [profileKey, setProfileKey] = useState<string | null>(null);
+  const cloudTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Resolve the saved guest preference and (if configured) the auth state.
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Character;
-        // Backfill fields added in later versions so old saves still load.
-        if (!parsed.consumables) parsed.consumables = {};
-        setCharacter(parsed);
+      if (localStorage.getItem(GUEST_CHOSEN_KEY)) setGuestChosen(true);
+    } catch {
+      /* ignore */
+    }
+    if (!cloudConfigured) {
+      setAuthReady(true);
+      return;
+    }
+    const unsub = subscribeAuth((u) => {
+      setUser(u);
+      setAuthReady(true);
+    });
+    return unsub;
+  }, [cloudConfigured]);
+
+  // Load the active profile's save once we know who we are.
+  useEffect(() => {
+    if (!authReady) return;
+    let cancelled = false;
+    (async () => {
+      if (user) {
+        setDataReady(false);
+        let data: Character | null = null;
+        let cloudFailed = false;
+        try {
+          data = await loadCloudSave(user.uid);
+        } catch {
+          cloudFailed = true;
+        }
+        if (!data) {
+          // Offline? fall back to the local mirror of this account.
+          if (cloudFailed) data = readLocal("rpg-cloud-" + user.uid);
+          // First-ever cloud login? adopt local guest progress.
+          if (!data) {
+            const local = readLocal(STORAGE_KEY);
+            if (local) {
+              data = local;
+              try {
+                await saveCloudSave(user.uid, local);
+              } catch {
+                /* will retry on next change */
+              }
+            }
+          }
+        }
+        if (cancelled) return;
+        setCharacter(data ? backfill(data) : null);
+        setProfileKey("cloud:" + user.uid);
+        setDataReady(true);
+      } else if (!cloudConfigured || guestChosen) {
+        const local = readLocal(STORAGE_KEY);
+        if (cancelled) return;
+        setCharacter(local ?? null);
+        setProfileKey("guest");
+        setDataReady(true);
+      } else {
+        // Cloud is available but the player hasn't chosen yet → sign-in screen.
+        setProfileKey(null);
+        setDataReady(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, user, guestChosen, cloudConfigured]);
+
+  // Persist on every change to whichever profile is active.
+  useEffect(() => {
+    if (!dataReady || !profileKey) return;
+    try {
+      if (profileKey === "guest") {
+        if (character)
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(character));
+        else localStorage.removeItem(STORAGE_KEY);
+      } else if (profileKey.startsWith("cloud:")) {
+        const uid = profileKey.slice("cloud:".length);
+        // Mirror locally for instant/offline loads.
+        if (character)
+          localStorage.setItem("rpg-cloud-" + uid, JSON.stringify(character));
+        else localStorage.removeItem("rpg-cloud-" + uid);
+        // Debounce the network write so rapid actions don't spam Firestore.
+        if (cloudTimer.current) clearTimeout(cloudTimer.current);
+        cloudTimer.current = setTimeout(() => {
+          saveCloudSave(uid, character).catch(() => {});
+        }, 800);
       }
     } catch {
-      // Corrupt save — start fresh rather than crash.
+      /* storage full/blocked — ignore */
     }
-    setLoaded(true);
-  }, []);
-
-  // Persist on every change.
-  useEffect(() => {
-    if (!loaded) return;
-    try {
-      if (character) localStorage.setItem(STORAGE_KEY, JSON.stringify(character));
-      else localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // Storage might be full/blocked — ignore.
-    }
-  }, [character, loaded]);
+  }, [character, profileKey, dataReady]);
 
   const pushToast = useCallback((text: string, tone: Toast["tone"] = "info") => {
     const id = Date.now() + Math.random();
@@ -101,6 +214,41 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3200);
+  }, []);
+
+  const signIn = useCallback(() => {
+    signInWithGoogle().catch((e: unknown) => {
+      const msg = e instanceof Error ? e.message : "";
+      pushToast(
+        /popup|cancel|closed/i.test(msg)
+          ? "Sign-in was cancelled."
+          : "Google sign-in failed. Check your Firebase setup.",
+        "bad",
+      );
+    });
+  }, [pushToast]);
+
+  const continueAsGuest = useCallback(() => {
+    try {
+      localStorage.setItem(GUEST_CHOSEN_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setGuestChosen(true);
+  }, []);
+
+  const signOutAccount = useCallback(() => {
+    try {
+      localStorage.removeItem(GUEST_CHOSEN_KEY);
+    } catch {
+      /* ignore */
+    }
+    void signOutUser();
+    setUser(null);
+    setGuestChosen(false);
+    setCharacter(null);
+    setProfileKey(null);
+    setDataReady(false);
   }, []);
 
   const newGame = useCallback((name: string, classKey: ClassKey) => {
@@ -309,11 +457,25 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const showSignIn = cloudConfigured && !user && !guestChosen;
+  const phase: AppPhase = !authReady
+    ? "loading"
+    : showSignIn
+      ? "signin"
+      : dataReady
+        ? "game"
+        : "loading";
+
   const value = useMemo<GameContextValue>(
     () => ({
       character,
-      loaded,
+      phase,
+      cloudConfigured,
+      user,
       toasts,
+      signIn,
+      signOutAccount,
+      continueAsGuest,
       newGame,
       resetGame,
       spendAttributePoint,
@@ -330,8 +492,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       character,
-      loaded,
+      phase,
+      cloudConfigured,
+      user,
       toasts,
+      signIn,
+      signOutAccount,
+      continueAsGuest,
       newGame,
       resetGame,
       spendAttributePoint,
